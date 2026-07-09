@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>LED Neon Sign - 세련된 응원 전광판</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts 적용 (다양한 한국어 폰트 스타일 지원) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gaegu:wght@400;700&family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
+  <!-- Lucide Icons (아이콘 라이브러리) -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <style>
+    /* 폰트 패밀리 매핑 정의 */
+    .font-sans-kr { font-family: 'Noto Sans KR', sans-serif; }
+    .font-gothic { font-family: 'Noto Sans KR', sans-serif; font-weight: 900; }
+    .font-batang { font-family: 'Gowun Batang', serif; font-weight: 700; }
+    .font-cute { font-family: 'Gaegu', cursive; font-weight: 700; }
+    .font-neon { font-family: 'Black Han Sans', sans-serif; }
+
+    /* 부드러운 전환 효과 */
+    .transition-theme {
+      transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease;
+    }
+
+    /* 전광판 미리보기 및 전체화면용 캔버스/보드 스타일 */
+    .led-display-container {
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* 네온 글로우 텍스트 섀도우 동적 적용을 위한 기본 베이스 */
+    .neon-text {
+      text-shadow: 0 0 10px rgba(255,255,255,0.8);
+      white-space: nowrap;
+      display: inline-block;
+    }
+
+    /* 깜빡임 애니메이션 (Blink) */
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.05; }
+    }
+    .effect-blink {
+      animation: blink 0.8s infinite;
+    }
+
+    /* 슬라이더 커스텀 스타일링 (네온 민트 & 인디핑크 매칭) */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      background: #E5E7EB;
+      height: 6px;
+      border-radius: 3px;
+    }
+    .dark input[type="range"]::-webkit-slider-runnable-track {
+      background: #374151;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      margin-top: -5px;
+      background-color: #10B981; /* Neon Mint 느낌 */
+      height: 16px;
+      width: 16px;
+      border-radius: 50%;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+      transition: transform 0.1s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* 커스텀 스크롤바 숨기기 */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="font-sans-kr transition-theme bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100 min-h-screen flex flex-col overflow-x-hidden">
+
+  <!-- 메인 레이아웃 컨테이너 (설정 및 미리보기 화면) -->
+  <div id="setup-screen" class="flex flex-col min-h-screen w-full max-w-md mx-auto shadow-2xl bg-white dark:bg-gray-900 transition-theme relative pb-6">
+    
+    <!-- 헤더 영역 -->
+    <header class="px-6 py-4 flex justify-between items-center border-b border-gray-100 dark:border-gray-800 transition-theme">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-400 to-pink-500 flex items-center justify-center shadow-md">
+          <i data-lucide="sparkles" class="w-4 h-4 text-white"></i>
+        </div>
+        <span class="font-bold text-lg tracking-tight bg-gradient-to-r from-emerald-500 to-pink-500 bg-clip-text text-transparent">LED NEON BOARD</span>
+      </div>
+      
+      <!-- 다크모드 토글 버튼 -->
+      <button id="theme-toggle" class="p-2.5 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all shadow-sm focus:outline-none" aria-label="테마 전환">
+        <i id="theme-icon" data-lucide="moon" class="w-5 h-5 text-gray-600 dark:text-yellow-400"></i>
+      </button>
+    </header>
+
+    <!-- [상단 40%] 실시간 미리보기 (Preview) 영역 -->
+    <section class="p-5 flex flex-col gap-2">
+      <div class="flex justify-between items-center px-1">
+        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">실시간 미리보기</span>
+        <span id="preview-direction-indicator" class="text-[10px] text-emerald-500 dark:text-emerald-400 flex items-center gap-1">
+          <i data-lucide="move-horizontal" class="w-3.5 h-3.5"></i>스크롤 재생 중
+        </span>
+      </div>
+      
+      <!-- 전광판 프레임 디자인 -->
+      <div id="preview-container" class="w-full h-44 rounded-2xl relative shadow-inner overflow-hidden border-4 border-gray-200 dark:border-gray-800 transition-all flex items-center bg-black">
+        <!-- 그리드 패턴 레이어 (LED 느낌 가미) -->
+        <div class="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px]"></div>
+        
+        <!-- 실시간 텍스트가 흘러가는 공간 -->
+        <div id="preview-track" class="w-full flex items-center relative overflow-hidden h-full">
+          <span id="preview-text" class="neon-text font-gothic absolute left-full text-4xl" style="color: #00FFCC;">
+            응원글을 입력해보세요!
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- [하단 60%] 컨트롤러 영역 (스크롤 가능하도록 유연한 패널 구성) -->
+    <section class="flex-1 px-5 flex flex-col gap-6 overflow-y-auto no-scrollbar">
+      
+      <!-- 1. 문구 입력창 -->
+      <div class="flex flex-col gap-2">
+        <label for="text-input" class="text-sm font-bold text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
+          <i data-lucide="text-cursor-input" class="w-4 h-4 text-emerald-500"></i> 전광판 문구
+        </label>
+        <div class="relative">
+          <input type="text" id="text-input" value="빛나는 오늘, 당신을 응원해! ✨" placeholder="전광판에 띄울 문구를 적어주세요" 
+                 class="w-full px-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition-all pr-12 text-sm shadow-sm" maxlength="50">
+          <button id="clear-text" class="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. 폰트 스타일 선택 (칩 형태 UI) -->
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-bold text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
+          <i data-lucide="type" class="w-4 h-4 text-emerald-500"></i> 폰트 스타일
+        </label>
+        <div class="grid grid-cols-4 gap-2">
+          <!-- 고딕 서체 -->
+          <button data-font="gothic" class="font-chip px-3 py-2.5 rounded-xl border text-xs font-semibold text-center transition-all bg-emerald-500 text-white border-emerald-500 dark:bg-emerald-600">
+            <span class="block font-gothic mb-0.5 text-sm">가나</span>
+            고딕체
+          </button>
+          <!-- 명조 서체 -->
+          <button data-font="batang" class="font-chip px-3 py-2.5 rounded-xl border text-xs font-semibold text-center transition-all bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+            <span class="block font-batang mb-0.5 text-sm">가나</span>
+            명조체
+          </button>
+          <!-- 아기자기한 서체 -->
+          <button data-font="cute" class="font-chip px-3 py-2.5 rounded-xl border text-xs font-semibold text-center transition-all bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+            <span class="block font-cute mb-0.5 text-sm">가나</span>
+            꼬마체
+          </button>
+          <!-- 네온 서체 -->
+          <button data-font="neon" class="font-chip px-3 py-2.5 rounded-xl border text-xs font-semibold text-center transition-all bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+            <span class="block font-neon mb-0.5 text-sm">가나</span>
+            네온체
+          </button>
+        </div>
+      </div>
+
+      <!-- 3. 색상 선택기 (컬러 팔레트) -->
+      <div class="grid grid-cols-2 gap-4">
+        <!-- 글자 색상 -->
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span> 글자 색상
+          </label>
+          <div class="flex flex-wrap gap-1.5" id="text-color-palette">
+            <!-- 동적 로드 또는 기본 세팅 -->
+            <button data-color="#00FFCC" class="color-dot w-7 h-7 rounded-full border-2 border-white dark:border-gray-900 ring-2 ring-emerald-500 transition-transform scale-110" style="background-color: #00FFCC;" aria-label="민트"></button>
+            <button data-color="#FF2E93" class="color-dot w-7 h-7 rounded-full border-2 border-white dark:border-gray-900 transition-transform hover:scale-105" style="background-color: #FF2E93;" aria-label="핑크"></button>
+            <button data-color="#FFFF00" class="color-dot w-7 h-7 rounded-full border-2 border-white dark:border-gray-900 transition-transform hover:scale-105" style="background-color: #FFFF00;" aria-label="노랑"></button>
+            <button data-color="#3399FF" class="color-dot w-7 h-7 rounded-full border-2 border-white dark:border-gray-900 transition-transform hover:scale-105" style="background-color: #3399FF;" aria-label="블루"></button>
+            <button data-color="#FFFFFF" class="color-dot w-7 h-7 rounded-full border-2 border-white dark:border-gray-900 transition-transform hover:scale-105" style="background-color: #FFFFFF;" aria-label="화이트"></button>
+            <label class="w-7 h-7 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center cursor-pointer hover:scale-105 transition-all bg-gray-50 dark:bg-gray-800" title="직접 선택">
+              <i data-lucide="pipette" class="w-3.5 h-3.5 text-gray-500"></i>
+              <input type="color" id="text-color-picker" value="#00FFCC" class="sr-only">
+            </label>
+          </div>
+        </div>
+
+        <!-- 배경 색상 -->
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-gray-700"></span> 배경 색상
+          </label>
+          <div class="flex flex-wrap gap-1.5" id="bg-color-palette">
+            <button data-color="#000000" class="bg-color-dot w-7 h-7 rounded-full border-2 border-white dark:border-gray-900 ring-2 ring-emerald-500 transition-transform scale-110" style="background-color: #000000;" aria-label="블랙"></button>
+            <button data-color="#111827" class="bg-color-dot w-7 h-7 rounded-full border-2 border-white dark:border-gray-900 transition-transform hover:scale-105" style="background-color: #111827;" aria-label="다크 그레이"></button>
+            <button data-color="#1E1B4B" class="bg-color-dot w-7 h-7 rounded-full border-2 border-white dark:border-gray-900 transition-transform hover:scale-105" style="background-color: #1E1B4B;" aria-label="네이비"></button>
+            <button data-color="#064E3B" class="bg-color-dot w-7 h-7 rounded-full border-2 border-white dark:border-gray-900 transition-transform hover:scale-105" style="background-color: #064E3B;" aria-label="다크 그린"></button>
+            <button data-color="#4C1D95" class="bg-color-dot w-7 h-7 rounded-full border-2 border-white dark:border-gray-900 transition-transform hover:scale-105" style="background-color: #4C1D95;" aria-label="다크 퍼플"></button>
+            <label class="w-7 h-7 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center cursor-pointer hover:scale-105 transition-all bg-gray-50 dark:bg-gray-800" title="직접 선택">
+              <i data-lucide="pipette" class="w-3.5 h-3.5 text-gray-500"></i>
+              <input type="color" id="bg-color-picker" value="#000000" class="sr-only">
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. 글자 효과 및 방향 설정 -->
+      <div class="flex flex-col gap-4 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 transition-theme border border-gray-100 dark:border-gray-800">
+        <!-- 스크롤 활성화 & 방향 변경 -->
+        <div class="flex items-center justify-between">
+          <div class="flex flex-col">
+            <span class="text-sm font-bold text-gray-700 dark:text-gray-300">텍스트 흘려보내기</span>
+            <span class="text-xs text-gray-400">좌/우 스크롤 효과를 부여합니다</span>
+          </div>
+          <div class="flex items-center gap-1 bg-white dark:bg-gray-800 rounded-lg p-0.5 shadow-sm border border-gray-200 dark:border-gray-700">
+            <button id="dir-left" class="p-1.5 rounded-md bg-emerald-500 text-white transition-all" title="왼쪽으로 흐르기">
+              <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            </button>
+            <button id="dir-stop" class="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all" title="정지">
+              <i data-lucide="circle-stop" class="w-4 h-4"></i>
+            </button>
+            <button id="dir-right" class="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all" title="오른쪽으로 흐르기">
+              <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- 속도 조절 슬라이더 -->
+        <div id="speed-slider-container" class="flex flex-col gap-1.5">
+          <div class="flex justify-between items-center text-xs text-gray-500">
+            <span>텍스트 이동 속도</span>
+            <span id="speed-value" class="font-bold text-emerald-500">보통 (3)</span>
+          </div>
+          <input type="range" id="speed-slider" min="1" max="8" value="3" class="w-full">
+        </div>
+
+        <!-- 부가 효과 스위치들 -->
+        <div class="grid grid-cols-2 gap-3 pt-2 border-t border-gray-200/50 dark:border-gray-700/50">
+          <!-- 깜빡임(Blink) -->
+          <button id="effect-blink-btn" class="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-500 transition-all text-left">
+            <span class="text-xs font-semibold text-gray-600 dark:text-gray-300 flex items-center gap-1">
+              <i data-lucide="eye-off" class="w-3.5 h-3.5 text-pink-500"></i> 깜빡임 효과
+            </span>
+            <span id="blink-badge" class="w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-600 transition-all"></span>
+          </button>
+
+          <!-- 네온 글로우(Neon Glow) -->
+          <button id="effect-glow-btn" class="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-gray-800 border border-emerald-400 dark:border-emerald-500 hover:border-emerald-500 transition-all text-left">
+            <span class="text-xs font-semibold text-gray-600 dark:text-gray-300 flex items-center gap-1">
+              <i data-lucide="zap" class="w-3.5 h-3.5 text-yellow-400"></i> 네온 글로우
+            </span>
+            <span id="glow-badge" class="w-2.5 h-2.5 rounded-full bg-emerald-500 transition-all"></span>
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 하단 고정: 전체화면 시작 버튼 -->
+    <div class="px-5 pt-4 pb-2 mt-auto">
+      <button id="start-full-screen" class="w-full py-4 bg-gradient-to-r from-emerald-400 via-teal-500 to-indigo-600 text-white font-bold rounded-2xl shadow-lg shadow-emerald-500/20 hover:shadow-indigo-500/30 active:scale-95 transition-all flex items-center justify-center gap-2 text-base">
+        <i data-lucide="maximize" class="w-5 h-5"></i>
+        전화면 시작하기
+      </button>
+      <p class="text-center text-[10px] text-gray-400 mt-2.5">
+        전체화면 상태에서는 가로모드로 재생되며, 화면을 터치하면 복귀합니다.
+      </p>
+    </div>
+  </div>
+
+  <!-- 전체화면 모드 (Full Screen Mode Overlay) -->
+  <div id="fullscreen-overlay" class="fixed inset-0 bg-black z-50 hidden flex items-center justify-center cursor-pointer select-none">
+    <!-- 가로 가상 컨테이너 (회전 처리 대응) -->
+    <div id="fullscreen-board" class="w-full h-full flex items-center justify-center relative overflow-hidden">
+      <!-- LED 도트 배경 효과 -->
+      <div class="absolute inset-0 pointer-events-none opacity-15 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:24px_24px]"></div>
+      
+      <!-- 흘러가는 대형 네온 텍스트 -->
+      <div id="fullscreen-track" class="w-full h-full flex items-center relative overflow-hidden">
+        <span id="fullscreen-text" class="neon-text font-gothic absolute left-full leading-none tracking-wide" style="font-size: 24vh;">
+          빛나는 오늘, 당신을 응원해! ✨
+        </span>
+      </div>
+
+      <!-- 되돌아가기 가이드 툴팁 (잠시 나타났다 사라짐) -->
+      <div id="exit-guide" class="absolute bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-black/60 border border-white/20 text-white/80 text-xs font-semibold flex items-center gap-2 pointer-events-none animate-bounce">
+        <i data-lucide="pointer" class="w-3.5 h-3.5"></i>
+        화면 아무 곳이나 탭하면 설정으로 돌아갑니다
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 글로벌 상태 관리 (State) ---
+    const state = {
+      text: "빛나는 오늘, 당신을 응원해! ✨",
+      fontFamily: "gothic", // gothic, batang, cute, neon
+      textColor: "#00FFCC",
+      bgColor: "#000000",
+      direction: "left",    // left, right, stop
+      speed: 3,             // 1 (느림) ~ 8 (빠름)
+      blink: false,
+      glow: true,
+      isFullscreen: false,
+      theme: 'light'        // light, dark
+    };
+
+    // --- DOM 요소 캐싱 ---
+    const textInput = document.getElementById('text-input');
+    const clearTextBtn = document.getElementById('clear-text');
+    const fontChips = document.querySelectorAll('.font-chip');
+    const textColorPicker = document.getElementById('text-color-picker');
+    const bgColorPicker = document.getElementById('bg-color-picker');
+    const speedSlider = document.getElementById('speed-slider');
+    const speedValueText = document.getElementById('speed-value');
+    const dirLeftBtn = document.getElementById('dir-left');
+    const dirStopBtn = document.getElementById('dir-stop');
+    const dirRightBtn = document.getElementById('dir-right');
+    const blinkBtn = document.getElementById('effect-blink-btn');
+    const blinkBadge = document.getElementById('blink-badge');
+    const glowBtn = document.getElementById('effect-glow-btn');
+    const glowBadge = document.getElementById('glow-badge');
+    const startFullScreenBtn = document.getElementById('start-full-screen');
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    const themeIcon = document.getElementById('theme-icon');
+    
+    // 미리보기 컴포넌트
+    const previewContainer = document.getElementById('preview-container');
+    const previewText = document.getElementById('preview-text');
+    const previewTrack = document.getElementById('preview-track');
+    const previewDirectionIndicator = document.getElementById('preview-direction-indicator');
+
+    // 전체화면 컴포넌트
+    const fullscreenOverlay = document.getElementById('fullscreen-overlay');
+    const fullscreenBoard = document.getElementById('fullscreen-board');
+    const fullscreenText = document.getElementById('fullscreen-text');
+    const fullscreenTrack = document.getElementById('fullscreen-track');
+    const exitGuide = document.getElementById('exit-guide');
+
+    // --- 애니메이션 엔진 (RequestAnimationFrame) ---
+    let previewAnimFrameId = null;
+    let fullscreenAnimFrameId = null;
+    
+    // 각 텍스트 트랙의 변위 기록용 변수
+    let previewPos = 0;
+    let fullscreenPos = 0;
+
+    // 초기 속도 가중치 매핑
+    const getSpeedPx = (speedSetting) => {
+      // 모바일 기기 주사율 및 자연스러운 변위를 고려한 픽셀 이동 수치
+      return speedSetting * 0.9 + 0.5;
+    };
+
+    // 다이나믹 글로우(Glow) 그림자 반환 함수
+    const getGlowShadow = (color, hasGlow) => {
+      if (!hasGlow) return 'none';
+      return `0 0 8px ${color}, 0 0 20px ${color}, 0 0 40px ${color}`;
+    };
+
+    // 미리보기 및 전체화면 렌더러 업데이트
+    function updateVisuals() {
+      // 1. 공통 텍스트 세팅
+      const displayText = state.text.trim() === "" ? " " : state.text;
+      previewText.textContent = displayText;
+      fullscreenText.textContent = displayText;
+
+      // 2. 폰트 클래스 수정
+      const fontClasses = ['font-gothic', 'font-batang', 'font-cute', 'font-neon'];
+      fontClasses.forEach(cls => {
+        previewText.classList.remove(cls);
+        fullscreenText.classList.remove(cls);
+      });
+      const selectedFontClass = `font-${state.fontFamily}`;
+      previewText.classList.add(selectedFontClass);
+      fullscreenText.classList.add(selectedFontClass);
+
+      // 3. 색상 세팅
+      previewText.style.color = state.textColor;
+      fullscreenText.style.color = state.textColor;
+      previewContainer.style.backgroundColor = state.bgColor;
+      fullscreenOverlay.style.backgroundColor = state.bgColor;
+
+      // 4. 깜빡임 효과 제어
+      if (state.blink) {
+        previewText.classList.add('effect-blink');
+        fullscreenText.classList.add('effect-blink');
+      } else {
+        previewText.classList.remove('effect-blink');
+        fullscreenText.classList.remove('effect-blink');
+      }
+
+      // 5. 글로우 효과 제어
+      const shadowValue = getGlowShadow(state.textColor, state.glow);
+      previewText.style.textShadow = shadowValue;
+      fullscreenText.style.textShadow = shadowValue;
+
+      // 6. 상태 방향 인디케이터 업데이트
+      if (state.direction === 'stop') {
+        previewDirectionIndicator.innerHTML = '<i data-lucide="circle-dot" class="w-3.5 h-3.5"></i>스크롤 정지';
+        previewDirectionIndicator.classList.replace('text-emerald-500', 'text-gray-400');
+        previewDirectionIndicator.classList.replace('text-emerald-400', 'text-gray-400');
+      } else {
+        previewDirectionIndicator.innerHTML = '<i data-lucide="move-horizontal" class="w-3.5 h-3.5"></i>스크롤 재생 중';
+        previewDirectionIndicator.classList.replace('text-gray-400', 'text-emerald-500');
+        if (document.documentElement.classList.contains('dark')) {
+          previewDirectionIndicator.classList.add('dark:text-emerald-400');
+        }
+      }
+      lucide.createIcons(); // 아이콘 재렌더링
+    }
+
+    // --- 애니메이션 루트 루프 ---
+    function animatePreview() {
+      if (state.direction === 'stop') {
+        // 정지 모드일 경우 가운대로 배치
+        previewText.style.left = '50%';
+        previewText.style.transform = 'translateX(-50%)';
+        previewAnimFrameId = requestAnimationFrame(animatePreview);
+        return;
+      }
+
+      const textWidth = previewText.offsetWidth;
+      const trackWidth = previewTrack.offsetWidth;
+      const speed = getSpeedPx(state.speed);
+
+      // 정지 상태에서 풀려 트랜스폼 잔상이 남지 않도록 조정
+      previewText.style.transform = 'none';
+
+      if (state.direction === 'left') {
+        previewPos -= speed;
+        // 텍스트가 완전히 왼쪽으로 숨겨지면 오른쪽 바깥에서 재시작
+        if (previewPos < -textWidth) {
+          previewPos = trackWidth;
+        }
+      } else if (state.direction === 'right') {
+        previewPos += speed;
+        // 텍스트가 완전히 오른쪽으로 숨겨지면 왼쪽 바깥에서 재시작
+        if (previewPos > trackWidth) {
+          previewPos = -textWidth;
+        }
+      }
+
+      previewText.style.left = `${previewPos}px`;
+      previewAnimFrameId = requestAnimationFrame(animatePreview);
+    }
+
+    function animateFullscreen() {
+      if (state.direction === 'stop') {
+        fullscreenText.style.left = '50%';
+        fullscreenText.style.transform = 'translateX(-50%)';
+        fullscreenAnimFrameId = requestAnimationFrame(animateFullscreen);
+        return;
+      }
+
+      const textWidth = fullscreenText.offsetWidth;
+      const trackWidth = fullscreenTrack.offsetWidth;
+      const speed = getSpeedPx(state.speed) * 2.2; // 화면 해상도가 더 크기 때문에 속도를 보정합니다.
+
+      fullscreenText.style.transform = 'none';
+
+      if (state.direction === 'left') {
+        fullscreenPos -= speed;
+        if (fullscreenPos < -textWidth) {
+          fullscreenPos = trackWidth;
+        }
+      } else if (state.direction === 'right') {
+        fullscreenPos += speed;
+        if (fullscreenPos > trackWidth) {
+          fullscreenPos = -textWidth;
+        }
+      }
+
+      fullscreenText.style.left = `${fullscreenPos}px`;
+      fullscreenAnimFrameId = requestAnimationFrame(animateFullscreen);
+    }
+
+    // --- 다크/라이트 테마 제어 ---
+    function initTheme() {
+      // 시스템 설정 혹은 쿠키 기반 기본 테마 지정 (여기선 시스템 어두운 모드 기본 감지)
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        state.theme = 'dark';
+        document.documentElement.classList.add('dark');
+      } else {
+        state.theme = 'light';
+        document.documentElement.classList.remove('dark');
+      }
+      updateThemeUI();
+    }
+
+    function toggleTheme() {
+      if (state.theme === 'light') {
+        state.theme = 'dark';
+        document.documentElement.classList.add('dark');
+      } else {
+        state.theme = 'light';
+        document.documentElement.classList.remove('dark');
+      }
+      updateThemeUI();
+    }
+
+    function updateThemeUI() {
+      if (state.theme === 'dark') {
+        themeIcon.setAttribute('data-lucide', 'sun');
+        themeIcon.classList.remove('text-gray-600');
+        themeIcon.classList.add('text-yellow-400');
+      } else {
+        themeIcon.setAttribute('data-lucide', 'moon');
+        themeIcon.classList.remove('text-yellow-400');
+        themeIcon.classList.add('text-gray-600');
+      }
+      lucide.createIcons();
+    }
+
+    // --- 이벤트 바인딩 및 상호작용 설정 ---
+
+    // 1. 문구 입력
+    textInput.addEventListener('input', (e) => {
+      state.text = e.target.value;
+      updateVisuals();
+    });
+
+    clearTextBtn.addEventListener('click', () => {
+      textInput.value = '';
+      state.text = '';
+      updateVisuals();
+      textInput.focus();
+    });
+
+    // 2. 폰트 선택 칩
+    fontChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        // 기존 활성 칩 비활성화
+        fontChips.forEach(c => {
+          c.className = "font-chip px-3 py-2.5 rounded-xl border text-xs font-semibold text-center transition-all bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700";
+        });
+        
+        // 현재 선택 칩 활성화
+        chip.className = "font-chip px-3 py-2.5 rounded-xl border text-xs font-semibold text-center transition-all bg-emerald-500 text-white border-emerald-500 dark:bg-emerald-600";
+        
+        state.fontFamily = chip.getAttribute('data-font');
+        updateVisuals();
+      });
+    });
+
+    // 3. 색상 선택 팔레트 및 컬러피커 핸들링
+    const textColors = document.querySelectorAll('#text-color-palette .color-dot');
+    textColors.forEach(dot => {
+      dot.addEventListener('click', () => {
+        textColors.forEach(d => {
+          d.classList.remove('ring-2', 'ring-emerald-500', 'scale-110');
+          d.classList.add('hover:scale-105');
+        });
+        dot.classList.add('ring-2', 'ring-emerald-500', 'scale-110');
+        dot.classList.remove('hover:scale-105');
+
+        state.textColor = dot.getAttribute('data-color');
+        textColorPicker.value = state.textColor;
+        updateVisuals();
+      });
+    });
+
+    textColorPicker.addEventListener('input', (e) => {
+      state.textColor = e.target.value;
+      // 팔레트 링 지우기
+      textColors.forEach(d => d.classList.remove('ring-2', 'ring-emerald-500', 'scale-110'));
+      updateVisuals();
+    });
+
+    const bgColors = document.querySelectorAll('#bg-color-palette .bg-color-dot');
+    bgColors.forEach(dot => {
+      dot.addEventListener('click', () => {
+        bgColors.forEach(d => {
+          d.classList.remove('ring-2', 'ring-emerald-500', 'scale-110');
+          d.classList.add('hover:scale-105');
+        });
+        dot.classList.add('ring-2', 'ring-emerald-500', 'scale-110');
+        dot.classList.remove('hover:scale-105');
+
+        state.bgColor = dot.getAttribute('data-color');
+        bgColorPicker.value = state.bgColor;
+        updateVisuals();
+      });
+    });
+
+    bgColorPicker.addEventListener('input', (e) => {
+      state.bgColor = e.target.value;
+      bgColors.forEach(d => d.classList.remove('ring-2', 'ring-emerald-500', 'scale-110'));
+      updateVisuals();
+    });
+
+    // 4. 방향 및 속도 제어
+    dirLeftBtn.addEventListener('click', () => {
+      state.direction = 'left';
+      updateDirectionUI();
+      updateVisuals();
+    });
+    dirStopBtn.addEventListener('click', () => {
+      state.direction = 'stop';
+      updateDirectionUI();
+      updateVisuals();
+    });
+    dirRightBtn.addEventListener('click', () => {
+      state.direction = 'right';
+      updateDirectionUI();
+      updateVisuals();
+    });
+
+    function updateDirectionUI() {
+      const btns = [dirLeftBtn, dirStopBtn, dirRightBtn];
+      btns.forEach(b => {
+        b.className = "p-1.5 rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all";
+      });
+
+      if (state.direction === 'left') {
+        dirLeftBtn.className = "p-1.5 rounded-md bg-emerald-500 text-white transition-all";
+      } else if (state.direction === 'stop') {
+        dirStopBtn.className = "p-1.5 rounded-md bg-emerald-500 text-white transition-all";
+      } else if (state.direction === 'right') {
+        dirRightBtn.className = "p-1.5 rounded-md bg-emerald-500 text-white transition-all";
+      }
+    }
+
+    speedSlider.addEventListener('input', (e) => {
+      state.speed = parseInt(e.target.value);
+      let speedLabel = "보통";
+      if (state.speed <= 2) speedLabel = "느림";
+      else if (state.speed >= 7) speedLabel = "매우 빠름";
+      else if (state.speed >= 5) speedLabel = "빠름";
+      
+      speedValueText.textContent = `${speedLabel} (${state.speed})`;
+    });
+
+    // 5. 부가 효과 버튼 토글
+    blinkBtn.addEventListener('click', () => {
+      state.blink = !state.blink;
+      if (state.blink) {
+        blinkBadge.classList.replace('bg-gray-300', 'bg-pink-500');
+        blinkBadge.classList.replace('dark:bg-gray-600', 'bg-pink-500');
+      } else {
+        blinkBadge.classList.replace('bg-pink-500', 'bg-gray-300');
+        if (state.theme === 'dark') blinkBadge.classList.add('dark:bg-gray-600');
+      }
+      updateVisuals();
+    });
+
+    glowBtn.addEventListener('click', () => {
+      state.glow = !state.glow;
+      if (state.glow) {
+        glowBadge.classList.replace('bg-gray-300', 'bg-emerald-500');
+        glowBadge.classList.replace('dark:bg-gray-600', 'bg-emerald-500');
+        glowBtn.classList.replace('border-gray-200', 'border-emerald-400');
+        glowBtn.classList.replace('dark:border-gray-700', 'dark:border-emerald-500');
+      } else {
+        glowBadge.classList.replace('bg-emerald-500', 'bg-gray-300');
+        if (state.theme === 'dark') glowBadge.classList.add('dark:bg-gray-600');
+        glowBtn.classList.replace('border-emerald-400', 'border-gray-200');
+        glowBtn.classList.replace('dark:border-emerald-500', 'dark:border-gray-700');
+      }
+      updateVisuals();
+    });
+
+    // 테마 토글 버튼 클릭
+    themeToggleBtn.addEventListener('click', toggleTheme);
+
+    // --- 전체화면 모드 처리 및 브라우저 Fullscreen API 연계 ---
+    
+    // 모바일 몰입감을 극대화하기 위한 디바이스 가로 회전 기능 제안
+    // (다만 디바이스/브라우저가 보안상 직접 회전을 막는 경우가 있으므로 CSS 회전 기법과 브라우저 Orientation API 동시 사용)
+    function enterFullscreen() {
+      state.isFullscreen = true;
+      fullscreenOverlay.classList.remove('hidden');
+      
+      // 모바일 전체화면 가속
+      const docEl = document.documentElement;
+      if (docEl.requestFullscreen) {
+        docEl.requestFullscreen().catch(() => {});
+      } else if (docEl.webkitRequestFullscreen) { /* Safari */
+        docEl.webkitRequestFullscreen();
+      }
+
+      // 디바이스 가로 모드 시도 (Screen Orientation API가 지원되는 최신 브라우저 대응)
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch((err) => {
+          console.log("자동 회전을 위해서는 기기의 '자동회전' 모드가 켜져있어야 원활하게 작동할 수 있습니다.");
+        });
+      }
+
+      // 전체화면 전용 애니메이션 트랙 좌표 초기화 및 렌더 가속 시작
+      fullscreenPos = fullscreenTrack.offsetWidth;
+      updateVisuals();
+      
+      if (fullscreenAnimFrameId) cancelAnimationFrame(fullscreenAnimFrameId);
+      animateFullscreen();
+
+      // 안내 가이드 메시지 2.5초 후 스무스 페이드 아웃
+      exitGuide.style.opacity = '1';
+      setTimeout(() => {
+        exitGuide.style.transition = 'opacity 1s ease';
+        exitGuide.style.opacity = '0';
+      }, 2500);
+    }
+
+    function exitFullscreen() {
+      state.isFullscreen = false;
+      fullscreenOverlay.classList.add('hidden');
+
+      // 풀스크린 탈출
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+
+      // 화면 모드 락 잠금해제
+      if (screen.orientation && screen.orientation.unlock) {
+        screen.orientation.unlock();
+      }
+
+      if (fullscreenAnimFrameId) cancelAnimationFrame(fullscreenAnimFrameId);
+      
+      // 다시 메인 미리보기 위치를 복구 및 싱크 조정
+      previewPos = previewTrack.offsetWidth;
+      updateVisuals();
+    }
+
+    // 전체화면 시작 버튼 클릭 이벤트
+    startFullScreenBtn.addEventListener('click', enterFullscreen);
+
+    // 전체화면에서 화면 탭시 탈출
+    fullscreenOverlay.addEventListener('click', exitFullscreen);
+
+    // ESC 키 입력 혹은 뒤로가기 동작 시 해제 대응
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement && state.isFullscreen) {
+        exitFullscreen();
+      }
+    });
+
+    // --- 앱 로드 즉시 실행부 ---
+    window.onload = function () {
+      lucide.createIcons();
+      initTheme();
+      
+      // 미리보기용 트랙 좌표 초기 세팅 후 애니메이션 루프 시작
+      previewPos = previewTrack.offsetWidth;
+      updateVisuals();
+      animatePreview();
+    }
+  </script>
+</body>
+</html>
